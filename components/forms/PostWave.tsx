@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { usePathname, useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useOrganization } from "@clerk/nextjs";
 
 import {
   Form,
@@ -35,6 +36,7 @@ interface Props {
 function PostWave({ userId }: { userId: string }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { organization } = useOrganization();
   const form = useForm({
     resolver: zodResolver(WaveValidation),
     defaultValues: {
@@ -47,10 +49,9 @@ function PostWave({ userId }: { userId: string }) {
     await createWave({
       text: values.wave,
       author: userId,
-      communityId: null,
+      communityId: organization ? organization.id : null,
       path: pathname,
     });
-
     router.push("/");
   };
 

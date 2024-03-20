@@ -1,11 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import User from "../models/user.model";
-import Community from "../models/community.model";
-import { connectToDB } from "../mongoose";
-import Wave from "../models/wave.model";
 import { FilterQuery, SortOrder } from "mongoose";
+import { revalidatePath } from "next/cache";
+
+import Community from "../models/community.model";
+import Wave from "../models/wave.model";
+import User from "../models/user.model";
+
+import { connectToDB } from "../mongoose";
 
 export async function fetchUser(userId: string) {
   try {
@@ -18,15 +20,6 @@ export async function fetchUser(userId: string) {
   } catch (error: any) {
     throw new Error(`Failed to fetch user: ${error.message}`);
   }
-}
-
-interface Params {
-  userId: string;
-  username: string;
-  name: string;
-  bio: string;
-  image: string;
-  path: string;
 }
 
 interface Params {
@@ -73,28 +66,35 @@ export async function fetchUserPosts(userId: string) {
   try {
     connectToDB();
 
-    // Find all waves authored by user with the given userId
-
-    // TODO Populate Community
-    const waves = await User.findOne({ is: userId }).populate({
+    // Find all waves authored by the user with the given userId
+    const waves = await User.findOne({ id: userId }).populate({
       path: "waves",
       model: Wave,
-      populate: {
-        path: "children",
-        model: Wave,
-        populate: {
-          path: "author",
-          model: User,
-          select: "name image id",
+      populate: [
+        {
+          path: "community",
+          model: Community,
+          select: "name id image _id", // Select the "name" and "_id" fields from the "Community" model
         },
-      },
+        {
+          path: "children",
+          model: Wave,
+          populate: {
+            path: "author",
+            model: User,
+            select: "name image id", // Select the "name" and "_id" fields from the "User" model
+          },
+        },
+      ],
     });
     return waves;
-  } catch (error: any) {
-    throw new Error(`Failed to fetch user posts: ${error.message}`);
+  } catch (error) {
+    console.error("Error fetching user waves:", error);
+    throw error;
   }
 }
 
+// Almost similar to Wave (search + pagination) and Community (search + pagination)
 export async function fetchUsers({
   userId,
   searchString = "",
@@ -111,14 +111,18 @@ export async function fetchUsers({
   try {
     connectToDB();
 
+    // Calculate the number of users to skip based on the page number and page size.
     const skipAmount = (pageNumber - 1) * pageSize;
 
+    // Create a case-insensitive regular expression for the provided search string.
     const regex = new RegExp(searchString, "i");
 
+    // Create an initial query object to filter users.
     const query: FilterQuery<typeof User> = {
-      id: { $ne: userId },
+      id: { $ne: userId }, // Exclude the current user from the results.
     };
 
+    // If the search string is not empty, add the $or operator to match either username or name fields.
     if (searchString.trim() !== "") {
       query.$or = [
         { username: { $regex: regex } },
@@ -126,6 +130,7 @@ export async function fetchUsers({
       ];
     }
 
+    // Define the sort options for the fetched users based on createdAt field and provided sort order.
     const sortOptions = { createdAt: sortBy };
 
     const usersQuery = User.find(query)
@@ -133,15 +138,18 @@ export async function fetchUsers({
       .skip(skipAmount)
       .limit(pageSize);
 
+    // Count the total number of users that match the search criteria (without pagination).
     const totalUsersCount = await User.countDocuments(query);
 
     const users = await usersQuery.exec();
 
+    // Check if there are more users beyond the current page.
     const isNext = totalUsersCount > skipAmount + users.length;
 
     return { users, isNext };
-  } catch (error: any) {
-    throw new Error(`Failed to fetch users: ${error.message}`);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    throw error;
   }
 }
 
@@ -152,14 +160,15 @@ export async function getActivity(userId: string) {
     // Find all waves created by the user
     const userWaves = await Wave.find({ author: userId });
 
-    // Collect all the child wave ids (replies) from the 'children' field
+    // Collect all the child wave ids (replies) from the 'children' field of each user wave
     const childWaveIds = userWaves.reduce((acc, userWave) => {
       return acc.concat(userWave.children);
     }, []);
 
+    // Find and return the child waves (replies) excluding the ones created by the same user
     const replies = await Wave.find({
       _id: { $in: childWaveIds },
-      author: { $ne: userId },
+      author: { $ne: userId }, // Exclude waves authored by the same user
     }).populate({
       path: "author",
       model: User,
@@ -167,7 +176,8 @@ export async function getActivity(userId: string) {
     });
 
     return replies;
-  } catch (error: any) {
-    throw new Error(`Failed to fetch activity: ${error.message}`);
+  } catch (error) {
+    console.error("Error fetching replies: ", error);
+    throw error;
   }
 }

@@ -55,7 +55,7 @@ async function Page({ params }: { params: { id: string } }) {
               className="w-full text-light-1"
             >
               {/* @ts-ignore */}
-              <wavesTab
+              <WavesTab
                 currentUserId={user.id}
                 accountId={userInfo.id}
                 accountType="User"
