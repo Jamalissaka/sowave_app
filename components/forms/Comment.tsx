@@ -58,7 +58,7 @@ const Comment = ({ waveId, currentUserImg, currentUserId }: Props) => {
               <FormLabel>
                 <Image
                   src={currentUserImg}
-                  alt="Profile image"
+                  alt="current_user"
                   width={48}
                   height={48}
                   className="rounded-full object-cover"
@@ -67,14 +67,15 @@ const Comment = ({ waveId, currentUserImg, currentUserId }: Props) => {
               <FormControl className="border-none bg-transparent">
                 <Input
                   type="text"
+                  {...field}
                   placeholder="Comment..."
                   className="no-focus text-light-1 outline-none"
-                  {...field}
                 />
               </FormControl>
             </FormItem>
           )}
         />
+
         <Button type="submit" className="comment-form_btn">
           Reply
         </Button>
